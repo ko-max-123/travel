@@ -94,7 +94,7 @@ img { max-width: 100%; }
 .shelf-book:nth-child(even) { --tilt: .55deg; }
 .shelf-book:hover, .shelf-book:focus-visible { outline: none; transform: translateY(-8px) rotate(0); }
 .shelf-book:focus-visible .shelf-cover { outline: 3px solid var(--red); outline-offset: 5px; }
-.shelf-cover {
+.shelf-cover, .book-cover-object {
   position: relative;
   aspect-ratio: .69;
   display: block;
@@ -109,9 +109,9 @@ img { max-width: 100%; }
   border-radius: 2px 7px 7px 2px;
   box-shadow: 11px 17px 25px rgba(45,33,20,.28), inset 0 0 0 4px rgba(255,255,255,.025);
 }
-.shelf-cover::before, .shelf-cover::after { content: ""; position: absolute; right: 11px; width: 44px; height: 44px; border-right: 1px solid rgba(197,159,91,.38); }
-.shelf-cover::before { top: 11px; border-top: 1px solid rgba(197,159,91,.38); }
-.shelf-cover::after { bottom: 11px; border-bottom: 1px solid rgba(197,159,91,.38); }
+.shelf-cover::before, .shelf-cover::after, .book-cover-object::before, .book-cover-object::after { content: ""; position: absolute; right: 11px; width: 44px; height: 44px; border-right: 1px solid rgba(197,159,91,.38); }
+.shelf-cover::before, .book-cover-object::before { top: 11px; border-top: 1px solid rgba(197,159,91,.38); }
+.shelf-cover::after, .book-cover-object::after { bottom: 11px; border-bottom: 1px solid rgba(197,159,91,.38); }
 .shelf-binding { position: absolute; left: 13px; top: 0; bottom: 0; width: 12px; border-left: 2px solid rgba(196,157,87,.72); border-right: 2px solid rgba(25,19,15,.62); box-shadow: 5px 0 8px rgba(0,0,0,.16); }
 .shelf-label {
   position: absolute;
@@ -154,6 +154,15 @@ img { max-width: 100%; }
 .shelf-foot { display: grid; justify-items: center; gap: .5rem; text-align: center; }
 .shelf-foot p { margin: 0; color: var(--muted); font: 600 .72rem var(--serif); }
 .shelf-foot a { min-height: 44px; display: inline-flex; align-items: center; color: #584c3c; font: 700 .74rem var(--serif); text-underline-offset: .35em; }
+
+.book-cover-page { min-height: 100svh; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 1.5rem; padding: clamp(1.2rem,4vw,2.5rem); }
+.book-cover-back { min-height: 44px; display: inline-flex; align-items: center; justify-self: start; color: #584c3c; font: 700 .76rem var(--serif); letter-spacing: .1em; text-underline-offset: .3em; }
+.book-cover-object { width: min(310px,68vw); align-self: center; animation: cover-in .45s ease-out both; }
+@keyframes cover-in { from { opacity: 0; transform: translateY(16px) rotateY(-8deg); } to { opacity: 1; transform: rotate(-.25deg); } }
+.book-cover-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .55rem 1rem; }
+.book-open-button { min-height: 50px; display: inline-flex; align-items: center; padding: .65rem 1.4rem; color: #fff9eb; background: var(--book-color); border: 1px solid color-mix(in srgb, var(--book-color), #000 30%); text-decoration: none; font: 700 .88rem var(--serif); letter-spacing: .12em; }
+.book-cover-actions button { min-height: 44px; padding: .45rem .25rem; color: #584c3c; background: transparent; border: 0; text-decoration: underline; text-underline-offset: .3em; cursor: pointer; }
+.book-open-button:hover, .book-open-button:focus-visible { filter: brightness(.92); outline: 2px solid var(--red); outline-offset: 3px; }
 
 .paper-shell {
   position: relative;
@@ -227,6 +236,9 @@ img { max-width: 100%; }
 .entry-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: clamp(1.3rem,4vw,2.5rem); }
 .entry-card { padding: .75rem .75rem 1.15rem; background: rgba(255,252,243,.6); border: 1px solid var(--line); box-shadow: 2px 6px 12px rgba(58,42,22,.09); transform: rotate(var(--tilt,-.25deg)); }
 .entry-card:nth-child(even) { --tilt: .3deg; }
+.entry-card.is-unvisited { box-shadow: 2px 5px 10px rgba(58,42,22,.06); }
+.entry-card.is-unvisited .entry-photo { filter: saturate(.55); }
+.entry-card.is-visited { border-left: 4px solid var(--book-color); }
 .entry-card a { text-decoration: none; }
 .entry-photo { position: relative; aspect-ratio: 4/3; display: grid; place-items: center; overflow: hidden; color: #746957; background: #ddd0b5; border: 1px solid rgba(74,56,34,.18); font: 700 .76rem var(--serif); text-align: center; }
 .entry-photo::before { content: "写"; width: 44px; aspect-ratio: 1; display: grid; place-items: center; margin-right: .55rem; border: 1px solid currentColor; border-radius: 50%; }
@@ -235,6 +247,7 @@ img { max-width: 100%; }
 .entry-card-copy { padding: .9rem .45rem 0; }
 .entry-card-copy p { margin: 0 0 .22rem; color: var(--book-color); font-size: .68rem; font-weight: 700; letter-spacing: .1em; }
 .entry-card-copy h2 { margin: 0; font: 700 1.3rem/1.45 var(--serif); letter-spacing: .05em; }
+.entry-address { display: block; margin-top: .4rem; color: var(--muted); font-size: .68rem; line-height: 1.55; overflow-wrap: anywhere; }
 .entry-card-copy time { display: block; margin-top: .5rem; color: var(--muted); font-size: .72rem; }
 .empty-note { grid-column: 1/-1; margin: 0; padding: 4rem 1rem; color: var(--muted); border: 1px dashed var(--line); font-family: var(--serif); text-align: center; }
 
@@ -252,12 +265,19 @@ img { max-width: 100%; }
 .photo-controls button { min-height: 44px; padding: .55rem .75rem; background: rgba(255,252,243,.48); border: 1px solid var(--line); cursor: pointer; }
 .storage-note { margin: .8rem 0 0; color: var(--muted); font-size: .68rem; line-height: 1.7; }
 .detail-editor { padding: clamp(2rem,5vw,4rem) clamp(1.5rem,5vw,3.5rem); }
+.catalog-meta { display: grid; gap: .18rem; margin: -.15rem 0 1.4rem; color: var(--ink); font-family: var(--serif); }
+.catalog-meta strong { color: var(--muted); font-size: .68rem; letter-spacing: .1em; }
+.catalog-meta small { color: var(--muted); font: .68rem/1.6 var(--sans); }
+.entry-card ruby rt, .catalog-meta ruby rt { font-size: .48em; }
 .entry-form { display: grid; gap: 1.25rem; }
 .entry-form label { display: grid; gap: .35rem; }
 .entry-form label > span { color: var(--muted); font: 700 .7rem var(--serif); letter-spacing: .1em; }
 .entry-form input, .entry-form textarea { width: 100%; padding: .72rem .2rem; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid rgba(72,55,33,.35); border-radius: 0; outline: none; }
 .entry-form input:focus, .entry-form textarea:focus { border-color: var(--book-color); box-shadow: 0 2px 0 color-mix(in srgb, var(--book-color), transparent 65%); }
 .entry-form input[name="title"] { font: 700 clamp(1.8rem,4vw,2.7rem)/1.35 var(--serif); }
+.entry-form .visit-field { min-height: 52px; display: flex; align-items: center; gap: .75rem; padding: .65rem .8rem; background: rgba(255,252,243,.5); border: 1px solid var(--line); cursor: pointer; }
+.entry-form .visit-field input { width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--book-color); }
+.entry-form .visit-field > span { color: var(--book-color); font-size: .88rem; letter-spacing: .05em; }
 .entry-form textarea { min-height: 13rem; padding: 1rem; resize: vertical; background-image: repeating-linear-gradient(to bottom, transparent 0 2rem, rgba(89,70,43,.18) calc(2rem + 1px)); line-height: calc(2rem + 1px); }
 .save-status { min-height: 1.5rem; margin: 0; color: var(--muted); font-size: .68rem; }
 .delete-entry { min-height: 44px; margin-top: 2rem; padding: .5rem 0; color: #864139; background: transparent; border: 0; text-decoration: underline; text-underline-offset: .3em; cursor: pointer; }
@@ -280,6 +300,7 @@ img { max-width: 100%; }
 .color-grid input:checked + span { outline: 3px double #f2e6cb; outline-offset: -7px; box-shadow: 0 0 0 3px #40372c; }
 .color-grid input:focus-visible + span { outline: 3px solid var(--red); outline-offset: 3px; }
 .dialog-submit { width: 100%; margin-top: .5rem; }
+.dialog-submit:disabled { opacity: .55; cursor: wait; }
 .missing-page { min-height: calc(100svh - 70px); display: grid; place-content: center; justify-items: center; gap: 1rem; padding: 2rem; text-align: center; }
 .missing-page h1 { margin: 0; font: 700 clamp(1.5rem,5vw,2.5rem) var(--serif); }
 .missing-page a { min-height: 44px; display: inline-flex; align-items: center; text-underline-offset: .3em; }

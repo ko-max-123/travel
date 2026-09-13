@@ -20,6 +20,11 @@
       .replaceAll("'", "&#039;");
   }
 
+  function rubyMarkup(text, reading) {
+    const safeText = escapeHtml(text);
+    return reading ? `<ruby>${safeText}<rt>${escapeHtml(reading)}</rt></ruby>` : safeText;
+  }
+
   function routeHref(...parts) {
     return `#${parts.map((part) => encodeURIComponent(part)).join("/")}`;
   }
@@ -45,10 +50,37 @@
     return "記録";
   }
 
+  function recordUnit(book) {
+    if (book.template === "pokefuta") return "枚";
+    if (book.template === "ichinomiya") return "社";
+    return "件";
+  }
+
   function templateLabel(book) {
     if (book.template === "pokefuta") return "ポケフタ用テンプレート";
     if (book.template === "ichinomiya") return "一宮用テンプレート";
     return "自分で作った収集帳";
+  }
+
+  function isVisited(entry) {
+    return entry.catalog ? Boolean(entry.visited) : true;
+  }
+
+  function entryStats(book, entries) {
+    const visited = entries.filter(isVisited);
+    return {
+      total: entries.length,
+      visited: visited.length,
+      prefectures: new Set(visited.map((entry) => entry.prefecture)).size,
+      isTemplate: book.template === "pokefuta" || book.template === "ichinomiya"
+    };
+  }
+
+  function templateCountText(book, entries) {
+    const stats = entryStats(book, entries);
+    return stats.isTemplate
+      ? `${stats.visited} / ${stats.total}${recordUnit(book)}`
+      : `${stats.prefectures}都道府県・${stats.total}${recordName(book)}`;
   }
 
   function setTheme(color = "#5c4935") {
@@ -116,13 +148,12 @@
         </header>
         <div class="book-shelf" aria-label="収集手帳の本棚">
           ${booksWithCounts.map(({ book, entries }) => {
-            const prefectures = new Set(entries.map((entry) => entry.prefecture)).size;
             return `
               <a class="shelf-book" href="${routeHref("book", book.id)}" style="--cover:${escapeHtml(book.color)}">
                 <span class="shelf-cover">
                   <span class="shelf-binding" aria-hidden="true"></span>
                   <span class="shelf-label"><small>${escapeHtml(templateLabel(book))}</small><strong>${escapeHtml(book.name)}</strong><i aria-hidden="true">集</i></span>
-                  <span class="shelf-count">${prefectures}都道府県・${entries.length}${escapeHtml(recordName(book))}</span>
+                  <span class="shelf-count">${escapeHtml(templateCountText(book, entries))}</span>
                 </span>
               </a>`;
           }).join("")}
@@ -134,11 +165,46 @@
         </div>
         <footer class="shelf-foot">
           <p>文字と帳は、この端末の中だけに保存されます。</p>
-          <a href="archive.html">以前のポケフタ・一宮・都道府県の旅帖を見る</a>
         </footer>
       </section>`;
 
     app.querySelector('[data-action="new-book"]')?.addEventListener("click", () => openBookDialog());
+  }
+
+  async function renderCover(bookId, token) {
+    const [book, entries] = await Promise.all([store.getBook(bookId), store.getEntries(bookId)]);
+    if (!book) return renderMissing("帳が見つかりません。", "#", "本棚へ戻る");
+    if (token !== renderToken) return;
+    const stats = entryStats(book, entries);
+    setTheme(book.color);
+    document.title = `${book.name}｜表紙`;
+
+    app.innerHTML = `
+      <section class="book-cover-page" style="--cover:${escapeHtml(book.color)};--book-color:${escapeHtml(book.color)}">
+        <a class="book-cover-back" href="#">← 本棚へ戻る</a>
+        <div class="book-cover-object" aria-label="${escapeHtml(book.name)}の表紙">
+          <span class="shelf-binding" aria-hidden="true"></span>
+          <span class="shelf-label">
+            <small>${escapeHtml(templateLabel(book))}</small>
+            <strong>${escapeHtml(book.name)}</strong>
+            <i aria-hidden="true">集</i>
+          </span>
+          <span class="shelf-count">${escapeHtml(templateCountText(book, entries))}</span>
+        </div>
+        <div class="book-cover-actions">
+          <a class="book-open-button" href="${routeHref("map", book.id)}">この帳を開く</a>
+          <button type="button" data-action="edit-book">表紙を整える</button>
+          ${stats.isTemplate ? "" : `<button class="danger-link" type="button" data-action="delete-book">この帳を削除</button>`}
+        </div>
+      </section>`;
+
+    app.querySelector('[data-action="edit-book"]')?.addEventListener("click", () => openBookDialog(book));
+    app.querySelector('[data-action="delete-book"]')?.addEventListener("click", async () => {
+      if (!window.confirm(`「${book.name}」と中の記録をすべて削除しますか？`)) return;
+      await store.deleteBook(book.id);
+      window.location.hash = "";
+      await renderRoute();
+    });
   }
 
   async function renderBook(bookId, token) {
@@ -148,16 +214,14 @@
     if (token !== renderToken) return;
     setTheme(book.color);
     document.title = `${book.name}｜収集手帳`;
-    const visited = new Set(entries.map((entry) => entry.prefecture));
-    const actions = `
-      <span class="folio-actions">
-        <button type="button" data-action="edit-book">帳を整える</button>
-        <button class="danger-link" type="button" data-action="delete-book">帳を削除</button>
-      </span>`;
-
+    const stats = entryStats(book, entries);
+    const visited = new Set(entries.filter(isVisited).map((entry) => entry.prefecture));
+    const intro = stats.isTemplate
+      ? `${stats.total}${recordUnit(book)}のうち、${stats.visited}${recordUnit(book)}を訪問。`
+      : `47都道府県のうち、${stats.prefectures}都道府県に${stats.total}件の記録。`;
     app.innerHTML = paperShell(`
       <article class="folio-page">
-        ${folioHead({ backHref: "#", backLabel: "本棚", eyebrow: templateLabel(book), title: book.name, intro: `47都道府県のうち、${visited.size}都道府県に${entries.length}件の記録。`, seal: "帳", actions })}
+        ${folioHead({ backHref: routeHref("book", book.id), backLabel: "表紙", eyebrow: templateLabel(book), title: book.name, intro, seal: "帳" })}
         <section class="map-spread">
           <figure class="map-sheet">
             <div class="map-graphic">
@@ -169,20 +233,15 @@
           <nav class="region-index" aria-label="地方を選択">
             <p class="region-index-title">地方目次</p>
             ${regions.map((region, index) => {
-              const count = region.prefectures.filter((prefecture) => visited.has(prefecture)).length;
-              return `<a href="${routeHref("region", book.id, region.id)}"><span>${numerals[index]}</span><strong>${escapeHtml(region.name)}</strong><small>${count} / ${region.prefectures.length}</small></a>`;
+              const regionEntries = entries.filter((entry) => region.prefectures.includes(entry.prefecture));
+              const count = stats.isTemplate ? regionEntries.filter(isVisited).length : region.prefectures.filter((prefecture) => visited.has(prefecture)).length;
+              const total = stats.isTemplate ? regionEntries.length : region.prefectures.length;
+              return `<a href="${routeHref("region", book.id, region.id)}"><span>${numerals[index]}</span><strong>${escapeHtml(region.name)}</strong><small>${count} / ${total}</small></a>`;
             }).join("")}
           </nav>
         </section>
       </article>`, book, "book-page");
 
-    app.querySelector('[data-action="edit-book"]')?.addEventListener("click", () => openBookDialog(book));
-    app.querySelector('[data-action="delete-book"]')?.addEventListener("click", async () => {
-      if (!window.confirm(`「${book.name}」と中の記録をすべて削除しますか？`)) return;
-      await store.deleteBook(book.id);
-      window.location.hash = "";
-      await renderRoute();
-    });
   }
 
   async function renderRegion(bookId, regionId, token) {
@@ -192,15 +251,24 @@
     if (token !== renderToken) return;
     setTheme(book.color);
     document.title = `${region.name}｜${book.name}`;
+    const stats = entryStats(book, entries);
+    const regionEntries = entries.filter((entry) => region.prefectures.includes(entry.prefecture));
+    const regionIntro = stats.isTemplate
+      ? `${regionEntries.length}${recordUnit(book)}を、都道府県ごとに収録しています。`
+      : `${region.prefectures.length}都道府県から、記録する場所を選びます。`;
 
     app.innerHTML = paperShell(`
       <article class="folio-page">
-        ${folioHead({ backHref: routeHref("book", book.id), backLabel: book.name, eyebrow: "都道府県を選ぶ", title: region.name, intro: `${region.prefectures.length}都道府県から、記録する場所を選びます。`, seal: region.mark })}
+        ${folioHead({ backHref: routeHref("map", book.id), backLabel: "日本地図", eyebrow: "都道府県を選ぶ", title: region.name, intro: regionIntro, seal: region.mark })}
         <section class="folio-body">
           <div class="prefecture-grid">
             ${region.prefectures.map((prefecture) => {
-              const count = entries.filter((entry) => entry.prefecture === prefecture).length;
-              return `<a class="prefecture-ticket ${count ? "has-record" : ""}" href="${routeHref("prefecture", book.id, prefecture)}"><strong>${escapeHtml(prefecture)}</strong><span>${count ? `${count}件` : "未記録"}</span></a>`;
+              const prefectureEntries = entries.filter((entry) => entry.prefecture === prefecture);
+              const visitedCount = prefectureEntries.filter(isVisited).length;
+              const label = stats.isTemplate
+                ? `${visitedCount} / ${prefectureEntries.length}`
+                : (prefectureEntries.length ? `${prefectureEntries.length}件` : "未記録");
+              return `<a class="prefecture-ticket ${visitedCount ? "has-record" : ""}" href="${routeHref("prefecture", book.id, prefecture)}"><strong>${escapeHtml(prefecture)}</strong><span>${escapeHtml(label)}</span></a>`;
             }).join("")}
           </div>
         </section>
@@ -217,21 +285,27 @@
     setTheme(book.color);
     document.title = `${safePrefecture}｜${book.name}`;
     const noun = recordName(book);
+    const stats = entryStats(book, entries);
+    const intro = stats.isTemplate
+      ? `${entries.length}${recordUnit(book)}のうち、${stats.visited}${recordUnit(book)}を訪問。`
+      : (entries.length ? `${entries.length}件の${noun}を綴じています。` : `この都道府県の${noun}はまだありません。`);
+    const addLabel = stats.isTemplate ? `登録外の${noun}を追加` : `${noun}を追加`;
 
     app.innerHTML = paperShell(`
       <article class="folio-page">
-        ${folioHead({ backHref: routeHref("region", book.id, region.id), backLabel: region.name, eyebrow: `${book.name}の記録`, title: safePrefecture, intro: entries.length ? `${entries.length}件の${noun}を綴じています。` : `この都道府県の${noun}はまだありません。`, seal: "記" })}
+        ${folioHead({ backHref: routeHref("region", book.id, region.id), backLabel: region.name, eyebrow: `${book.name}の記録`, title: safePrefecture, intro, seal: "記" })}
         <section class="folio-body">
-          <div class="page-command"><button class="primary-button" type="button" data-action="new-entry">＋ ${escapeHtml(noun)}を追加</button></div>
+          <div class="page-command"><button class="primary-button" type="button" data-action="new-entry">＋ ${escapeHtml(addLabel)}</button></div>
           <div class="entry-grid">
             ${entries.length ? entries.map((entry) => `
-              <article class="entry-card">
+              <article class="entry-card ${isVisited(entry) ? "is-visited" : "is-unvisited"}">
                 <a href="${routeHref("entry", book.id, entry.id)}">
                   <div class="entry-photo" data-entry-photo="${escapeHtml(entry.id)}"><span>写真はまだありません</span></div>
                   <div class="entry-card-copy">
-                    <p>${escapeHtml(entry.location || safePrefecture)}</p>
-                    <h2>${escapeHtml(entry.title)}</h2>
-                    <time datetime="${escapeHtml(entry.visitedOn)}">${escapeHtml(formatDate(entry.visitedOn))}</time>
+                    <p>${rubyMarkup(entry.catalogMeta || safePrefecture, entry.catalogMetaReading)}</p>
+                    <h2>${rubyMarkup(entry.title, entry.titleReading)}</h2>
+                    ${entry.catalog && entry.location ? `<small class="entry-address">${escapeHtml(entry.location)}</small>` : ""}
+                    <time datetime="${escapeHtml(entry.visitedOn)}">${escapeHtml(isVisited(entry) ? formatDate(entry.visitedOn) : "未訪問")}</time>
                   </div>
                 </a>
               </article>`).join("") : `<p class="empty-note">最初の${escapeHtml(noun)}を、この頁に追加できます。</p>`}
@@ -310,14 +384,20 @@
         </section>
         <section class="detail-editor">
           <p class="eyebrow">${escapeHtml(book.name)}・${escapeHtml(entry.prefecture)}</p>
+          ${entry.catalogMeta ? `<p class="catalog-meta"><strong>${entry.catalogKind === "ichinomiya" ? "旧国名" : "登場するポケモン"}</strong>${rubyMarkup(entry.catalogMeta, entry.catalogMetaReading)}</p>` : ""}
+          ${entry.titleReading ? `<p class="catalog-meta"><strong>神社名の読み</strong>${escapeHtml(entry.titleReading)}</p>` : ""}
+          ${entry.deity ? `<p class="catalog-meta"><strong>御祭神</strong>${escapeHtml(entry.deity)}${entry.deityReading ? `<small>読み：${escapeHtml(entry.deityReading)}</small>` : ""}</p>` : ""}
           <form class="entry-form" data-entry-form>
+            ${entry.catalog ? `<label class="visit-field"><input name="visited" type="checkbox" ${entry.visited ? "checked" : ""}><span>訪問済みにする</span></label>` : ""}
             <label><span>記録の名前</span><input name="title" value="${escapeHtml(entry.title)}" required maxlength="80"></label>
             <label><span>場所</span><input name="location" value="${escapeHtml(entry.location)}" maxlength="120" placeholder="市町村、施設名など"></label>
             <label><span>日付</span><input name="visitedOn" type="date" value="${escapeHtml(entry.visitedOn)}"></label>
             <label class="note-field"><span>この頁に残すこと</span><textarea name="note" rows="10" placeholder="見つけたときのこと、印象、また訪れたい理由など">${escapeHtml(entry.note)}</textarea></label>
             <p class="save-status" role="status" data-save-status>入力内容はこの端末に自動保存されます</p>
           </form>
-          <button class="delete-entry" type="button" data-action="delete-entry">この記録を削除</button>
+          ${entry.catalog
+            ? `<button class="delete-entry" type="button" data-action="clear-entry">訪問記録を消す</button>`
+            : `<button class="delete-entry" type="button" data-action="delete-entry">この記録を削除</button>`}
         </section>
       </article>`, book, "detail-book-page");
 
@@ -330,6 +410,14 @@
     app.querySelector('[data-action="remove-photo"]')?.addEventListener("click", async () => {
       if (!window.confirm("この記録から写真を外しますか？ 元の画像ファイルは削除されません。")) return;
       await store.deleteMedia(entry.id);
+      await renderRoute();
+    });
+    app.querySelector('[data-action="clear-entry"]')?.addEventListener("click", async () => {
+      if (!window.confirm(`「${entry.title}」の訪問日・写真・メモを消しますか？`)) return;
+      await Promise.all([
+        store.updateEntry(entry.id, { visited: false, visitedOn: "", note: "" }),
+        store.deleteMedia(entry.id)
+      ]);
       await renderRoute();
     });
     app.querySelector('[data-action="delete-entry"]')?.addEventListener("click", async () => {
@@ -356,7 +444,8 @@
         title,
         location: String(formData.get("location") || "").trim(),
         visitedOn: String(formData.get("visitedOn") || ""),
-        note: String(formData.get("note") || "")
+        note: String(formData.get("note") || ""),
+        visited: entry.catalog ? formData.get("visited") === "on" : true
       });
       await requestPersistentStorage();
       status.textContent = "この端末に保存しました";
@@ -419,42 +508,58 @@
   }
 
   function openBookDialog(book = null) {
-    const selectedColor = book?.color || colors[0].value;
+    const selectedColor = book?.color || "";
     dialogRoot.innerHTML = `
       <dialog class="book-dialog">
         <form method="dialog" class="dialog-sheet" data-book-form>
           <button class="dialog-close" type="button" data-close aria-label="閉じる">×</button>
           <p class="eyebrow">${book ? "帳を整える" : "新しい一冊"}</p>
           <h2>${book ? "名前と色を変える" : "どんな帳にしますか"}</h2>
-          <label class="dialog-field"><span>帳の名前</span><input name="name" value="${escapeHtml(book?.name || "")}" required maxlength="40" placeholder="例：城めぐり帖"></label>
+          <label class="dialog-field"><span>帳の名前（1〜12文字）</span><input name="name" value="${escapeHtml(book?.name || "")}" required minlength="1" maxlength="12" placeholder="例：城めぐり帖"></label>
           <fieldset class="color-field">
-            <legend>表紙の色・16色</legend>
+            <legend>表紙の色・16色（必須）</legend>
             <div class="color-grid">
-              ${colors.map((color) => `<label title="${escapeHtml(color.name)}"><input type="radio" name="color" value="${escapeHtml(color.value)}" ${color.value === selectedColor ? "checked" : ""}><span style="--swatch:${escapeHtml(color.value)}"><b>${escapeHtml(color.name)}</b></span></label>`).join("")}
+              ${colors.map((color, index) => `<label title="${escapeHtml(color.name)}"><input type="radio" name="color" value="${escapeHtml(color.value)}" ${index === 0 ? "required" : ""} ${color.value === selectedColor ? "checked" : ""}><span style="--swatch:${escapeHtml(color.value)}"><b>${escapeHtml(color.name)}</b></span></label>`).join("")}
             </div>
           </fieldset>
-          <button class="primary-button dialog-submit" type="submit">${book ? "この表紙に変える" : "この帳を作る"}</button>
+          <button class="primary-button dialog-submit" type="button" data-save-book>${book ? "この表紙に変える" : "手帳を新しく作る"}</button>
         </form>
       </dialog>`;
     const dialog = dialogRoot.querySelector("dialog");
     const form = dialogRoot.querySelector("[data-book-form]");
+    const nameInput = form.querySelector("input[name=name]");
+    const saveButton = form.querySelector("[data-save-book]");
     dialog.showModal();
-    form.querySelector("input[name=name]")?.focus();
+    nameInput?.focus();
     dialogRoot.querySelector("[data-close]")?.addEventListener("click", () => dialog.close());
     dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
     dialog.addEventListener("close", () => { dialogRoot.innerHTML = ""; });
-    form.addEventListener("submit", async (event) => {
+    form.addEventListener("submit", (event) => {
       event.preventDefault();
+    });
+    nameInput?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") event.preventDefault();
+    });
+    saveButton?.addEventListener("click", async () => {
+      const name = String(nameInput?.value || "").trim();
+      nameInput?.setCustomValidity(name.length >= 1 && name.length <= 12 ? "" : "名前は1文字以上12文字以下で入力してください。");
       if (!form.reportValidity()) return;
       const formData = new FormData(form);
       const values = {
-        name: String(formData.get("name") || "").trim(),
-        color: String(formData.get("color") || colors[0].value)
+        name,
+        color: String(formData.get("color"))
       };
-      const saved = book ? await store.updateBook(book.id, values) : await store.createBook(values);
-      await requestPersistentStorage();
-      dialog.close();
-      window.location.hash = routeHref("book", saved.id);
+      saveButton.disabled = true;
+      try {
+        const saved = book ? await store.updateBook(book.id, values) : await store.createBook(values);
+        await requestPersistentStorage();
+        dialog.close();
+        const coverHref = routeHref("book", saved.id);
+        if (window.location.hash === coverHref) await renderRoute();
+        else window.location.hash = coverHref;
+      } finally {
+        saveButton.disabled = false;
+      }
     });
   }
 
@@ -514,7 +619,8 @@
     window.scrollTo({ top: 0, behavior: "instant" });
 
     try {
-      if (page === "book" && first) return await renderBook(first, token);
+      if (page === "book" && first) return await renderCover(first, token);
+      if (page === "map" && first) return await renderBook(first, token);
       if (page === "region" && first && second) return await renderRegion(first, second, token);
       if (page === "prefecture" && first && second) return await renderPrefecture(first, second, token);
       if (page === "entry" && first && second) return await renderEntry(first, second, token);
