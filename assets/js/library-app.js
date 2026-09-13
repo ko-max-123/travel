@@ -399,13 +399,30 @@
           permission = await media.handle.requestPermission({ mode: "read" });
         }
         if (permission === "granted") return { file: await media.handle.getFile(), needsPermission: false };
+        if (media.blob instanceof Blob) return { file: media.blob, needsPermission: false };
         return { file: null, needsPermission: true };
       } catch {
+        if (media.blob instanceof Blob) return { file: media.blob, needsPermission: false };
         return { file: null, needsPermission: true };
       }
     }
     if (media.blob instanceof Blob) return { file: media.blob, needsPermission: false };
     return { file: null, needsPermission: false };
+  }
+
+  async function keepReferencePreview(media, file) {
+    if (!media || media.mode !== "reference" || media.blob instanceof Blob || !(file instanceof Blob)) return;
+    try {
+      await store.saveMedia({ ...media, blob: file });
+    } catch {
+      await store.saveMedia({
+        entryId: media.entryId,
+        mode: "copy",
+        blob: file,
+        fileName: media.fileName || file.name,
+        mimeType: file.type
+      });
+    }
   }
 
   async function hydrateEntryPhotos(entries, token) {
@@ -433,13 +450,24 @@
     ]);
     if (!book || !entry || entry.bookId !== book.id) return renderMissing("記録が見つかりません。", "#", "本棚へ戻る");
     const image = await mediaFile(media, false);
+    if (image.file) await keepReferencePreview(media, image.file);
     if (token !== renderToken) return;
     setTheme(book.color);
     document.title = `${entry.title}｜${book.name}`;
     const photoMarkup = image.file
       ? `<img src="${makeObjectUrl(image.file)}" alt="${escapeHtml(entry.title)}の写真">`
       : `<div class="detail-photo-empty"><span aria-hidden="true">写</span><strong>${image.needsPermission ? "写真を開くには許可が必要です" : "写真はまだありません"}</strong><small>${escapeHtml(media?.fileName || "端末内の写真を選べます")}</small></div>`;
-    const storageText = media?.mode === "reference" ? "元の画像ファイルを参照しています" : media?.mode === "copy" ? "画像をこの端末の手帳内に保存しています" : "対応端末では元の画像ファイルを参照します";
+    const hasReferencePreview = media?.mode === "reference" && (media?.blob instanceof Blob || image.file instanceof Blob);
+    const storageText = hasReferencePreview
+      ? "元の画像を参照し、再表示用データもこの端末内だけに保持しています。"
+      : media?.mode === "reference"
+        ? "元の画像ファイルを参照しています。表示できない場合は、一度だけアクセスを許可してください。"
+        : media?.mode === "copy"
+          ? "画像はアップロードせず、この端末の手帳内だけに保存しています。"
+          : "スマホでは端末の写真から選べます。画像はアップロードされません。";
+    const photoPickerLabel = useSystemPhotoLibrary()
+      ? (media ? "フォトから選び直す" : "フォトから選ぶ")
+      : (media ? "写真を選び直す" : "写真を選ぶ");
 
     setAppHtml(paperShell(`
       <article class="detail-page">
@@ -449,10 +477,10 @@
           <div class="detail-photo-frame">${photoMarkup}</div>
           <div class="photo-controls">
             ${image.needsPermission ? `<button type="button" data-action="grant-photo">写真を表示</button>` : ""}
-            <button type="button" data-action="choose-photo">${media ? "写真を選び直す" : "写真を選ぶ"}</button>
+            <button type="button" data-action="choose-photo">${photoPickerLabel}</button>
             ${media ? `<button class="danger-link" type="button" data-action="remove-photo">写真を外す</button>` : ""}
           </div>
-          <p class="storage-note">${escapeHtml(storageText)}。画像が移動・削除されると表示できなくなる場合があります。</p>
+          <p class="storage-note">${escapeHtml(storageText)}</p>
         </section>
         <section class="detail-editor">
           <p class="eyebrow">${escapeHtml(book.name)}・${escapeHtml(entry.prefecture)}</p>
@@ -477,7 +505,10 @@
     app.querySelector('[data-action="choose-photo"]')?.addEventListener("click", () => choosePhoto(entry));
     app.querySelector('[data-action="grant-photo"]')?.addEventListener("click", async () => {
       const result = await mediaFile(media, true);
-      if (result.file) await renderRoute();
+      if (result.file) {
+        await keepReferencePreview(media, result.file);
+        await renderRoute();
+      }
     });
     app.querySelector('[data-action="remove-photo"]')?.addEventListener("click", async () => {
       if (!window.confirm("この記録から写真を外しますか？ 元の画像ファイルは削除されません。")) return;
@@ -535,9 +566,15 @@
     form.addEventListener("submit", (event) => event.preventDefault());
   }
 
+  function useSystemPhotoLibrary() {
+    if (navigator.userAgentData?.mobile === true) return true;
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "")) return true;
+    return Boolean(window.matchMedia?.("(pointer: coarse)").matches && navigator.maxTouchPoints > 0);
+  }
+
   async function choosePhoto(entry) {
     try {
-      if ("showOpenFilePicker" in window) {
+      if (!useSystemPhotoLibrary() && "showOpenFilePicker" in window) {
         const [handle] = await window.showOpenFilePicker({
           id: "collection-photo",
           multiple: false,
@@ -546,15 +583,17 @@
             accept: { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"] }
           }]
         });
+        const file = await handle.getFile();
         try {
           await store.saveMedia({
             entryId: entry.id,
             mode: "reference",
             handle,
-            fileName: handle.name
+            blob: file,
+            fileName: handle.name,
+            mimeType: file.type
           });
         } catch {
-          const file = await handle.getFile();
           await store.saveMedia({ entryId: entry.id, mode: "copy", blob: file, fileName: file.name, mimeType: file.type });
         }
       } else {
@@ -574,7 +613,17 @@
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
-      input.addEventListener("change", () => resolve(input.files?.[0] || null), { once: true });
+      input.tabIndex = -1;
+      input.setAttribute("aria-hidden", "true");
+      input.style.position = "fixed";
+      input.style.inset = "auto auto 0 -9999px";
+      document.body.append(input);
+      const finish = (file) => {
+        input.remove();
+        resolve(file || null);
+      };
+      input.addEventListener("change", () => finish(input.files?.[0]), { once: true });
+      input.addEventListener("cancel", () => finish(null), { once: true });
       input.click();
     });
   }
