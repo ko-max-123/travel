@@ -41,6 +41,17 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
 button, input, textarea { font: inherit; }
 button { color: inherit; -webkit-tap-highlight-color: transparent; }
 img { max-width: 100%; }
+#app { min-height: 100svh; perspective: 1500px; }
+#app.page-turn-out-forward > *, #app.page-turn-in-forward > *,
+#app.page-turn-out-back > *, #app.page-turn-in-back > * { backface-visibility: hidden; will-change: transform, opacity, filter; }
+#app.page-turn-out-forward > * { transform-origin: left center; animation: page-out-forward .17s ease-in both; }
+#app.page-turn-in-forward > * { transform-origin: left center; animation: page-in-forward .52s cubic-bezier(.2,.72,.18,1) both; }
+#app.page-turn-out-back > * { transform-origin: right center; animation: page-out-back .17s ease-in both; }
+#app.page-turn-in-back > * { transform-origin: right center; animation: page-in-back .52s cubic-bezier(.2,.72,.18,1) both; }
+@keyframes page-out-forward { to { opacity: .18; filter: brightness(.8); transform: translateX(-3%) rotateY(-15deg) scale(.99); } }
+@keyframes page-in-forward { from { opacity: .12; filter: brightness(.82); transform: translateX(5%) rotateY(16deg) scale(.985); } to { opacity: 1; filter: none; transform: none; } }
+@keyframes page-out-back { to { opacity: .18; filter: brightness(.8); transform: translateX(3%) rotateY(15deg) scale(.99); } }
+@keyframes page-in-back { from { opacity: .12; filter: brightness(.82); transform: translateX(-5%) rotateY(-16deg) scale(.985); } to { opacity: 1; filter: none; transform: none; } }
 
 .skip-link {
   position: fixed;
@@ -177,13 +188,9 @@ img { max-width: 100%; }
   background-size: auto, 25px 23px;
   border: 1px solid rgba(76,54,27,.28);
   box-shadow: 0 22px 52px rgba(52,37,20,.18);
-  transform-origin: left center;
-  animation: page-in .4s ease-out both;
 }
 .paper-shell::after { content: ""; position: absolute; right: 8px; top: 0; bottom: 0; width: 3px; border-right: 1px solid rgba(86,65,35,.28); border-left: 1px solid rgba(255,255,255,.45); pointer-events: none; }
 .page-binding { position: absolute; z-index: 3; left: 14px; top: 0; bottom: 0; width: 13px; border-right: 1px solid rgba(74,53,29,.17); box-shadow: 6px 0 13px rgba(67,48,26,.08); pointer-events: none; }
-@keyframes page-in { from { opacity: 0; transform: translateX(3%) rotateY(-7deg); } to { opacity: 1; transform: none; } }
-
 .folio-page { min-height: calc(100svh - 70px); padding-bottom: 3rem; }
 .folio-head { padding: clamp(2.2rem,6vw,4.7rem) clamp(1.5rem,7vw,5rem) clamp(1.8rem,4vw,2.8rem); border-bottom: 1px dashed var(--line); }
 .folio-nav { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: clamp(2rem,5vw,3.5rem); }
@@ -201,7 +208,8 @@ img { max-width: 100%; }
 .map-spread { display: grid; grid-template-columns: minmax(300px,.95fr) minmax(280px,.75fr); align-items: center; gap: clamp(2rem,7vw,5rem); padding: 2rem clamp(1.2rem,7vw,5rem) 4rem; }
 .map-sheet { margin: 0; padding: 1.1rem 1.1rem 1.5rem; background: rgba(255,252,242,.58); border: 1px solid var(--line); box-shadow: 3px 6px 13px rgba(64,45,24,.09); transform: rotate(-.45deg); }
 .map-graphic { position: relative; width: min(100%,410px); margin: auto; }
-.map-graphic > img { display: block; width: 100%; height: auto; filter: sepia(.32) saturate(.62) contrast(.95); }
+.map-graphic > img, .map-graphic > object { display: block; width: 100%; height: auto; aspect-ratio: 570 / 755; filter: sepia(.32) saturate(.62) contrast(.95); }
+.map-graphic > object { touch-action: manipulation; }
 .map-sheet figcaption { margin-top: .8rem; color: var(--muted); font: 600 .72rem/1.7 var(--serif); text-align: center; }
 .map-hit { position: absolute; z-index: 2; min-width: 3rem; padding: .16rem .38rem; color: #fff9e9; background: color-mix(in srgb, var(--book-color), #000 10%); border: 1px solid rgba(255,255,255,.6); font: 700 .58rem var(--serif); text-align: center; text-decoration: none; transform: translate(-50%,-50%) rotate(-2deg); }
 .map-hit:hover, .map-hit:focus-visible { background: var(--red); outline: 2px solid var(--paper-light); outline-offset: 2px; }

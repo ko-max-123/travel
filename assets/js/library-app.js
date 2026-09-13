@@ -10,6 +10,9 @@
   let renderToken = 0;
   let activeObjectUrls = [];
   let saveTimer = 0;
+  let previousRoute = null;
+  let turnDirection = "none";
+  let turnTimer = 0;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -36,6 +39,71 @@
       return raw.split("/").map(decodeURIComponent);
     } catch {
       return ["shelf"];
+    }
+  }
+
+  function routeDepth(route) {
+    return { shelf: 0, book: 1, map: 2, region: 3, prefecture: 4, entry: 5 }[route?.[0]] ?? 0;
+  }
+
+  function pageTurnDirection(from, to) {
+    if (!from) return "none";
+    return routeDepth(to) < routeDepth(from) ? "back" : "forward";
+  }
+
+  function reducedMotion() {
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  async function turnPageOut(direction) {
+    window.clearTimeout(turnTimer);
+    app.className = "";
+    if (direction === "none" || reducedMotion() || !app.firstElementChild) return;
+    app.classList.add(`page-turn-out-${direction}`);
+    await new Promise((resolve) => window.setTimeout(resolve, 170));
+    app.className = "";
+  }
+
+  function setAppHtml(markup) {
+    app.className = "";
+    app.innerHTML = markup;
+    if (turnDirection === "none" || reducedMotion()) return;
+    void app.offsetWidth;
+    const className = `page-turn-in-${turnDirection}`;
+    app.classList.add(className);
+    turnTimer = window.setTimeout(() => app.classList.remove(className), 560);
+  }
+
+  function bindMapRegions(book) {
+    const mapObject = app.querySelector("[data-map-object]");
+    if (!mapObject) return;
+
+    const bindLinks = () => {
+      let documentInMap;
+      try {
+        documentInMap = mapObject.contentDocument;
+      } catch {
+        return;
+      }
+      documentInMap?.querySelectorAll(".region-link").forEach((link) => {
+        if (link.dataset.collectionBound === "true") return;
+        const rawHref = link.getAttribute("href") || link.getAttribute("xlink:href") || link.getAttributeNS("http://www.w3.org/1999/xlink", "href") || "";
+        const match = rawHref.match(/[?&]region=([^&#]+)/);
+        const regionId = match ? decodeURIComponent(match[1]) : "";
+        if (!regions.some((region) => region.id === regionId)) return;
+        link.dataset.collectionBound = "true";
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          window.location.hash = routeHref("region", book.id, regionId);
+        });
+      });
+    };
+
+    mapObject.addEventListener("load", bindLinks, { once: true });
+    try {
+      if (mapObject.contentDocument?.readyState === "complete") bindLinks();
+    } catch {
+      // file:// などでSVG内部へアクセスできなくても、地方名リンクは利用できる。
     }
   }
 
@@ -139,7 +207,7 @@
     })));
     if (token !== renderToken) return;
 
-    app.innerHTML = `
+    setAppHtml(`
       <section class="shelf-page">
         <header class="shelf-heading">
           <p>端末に綴る、わたしだけの記録</p>
@@ -166,7 +234,7 @@
         <footer class="shelf-foot">
           <p>文字と帳は、この端末の中だけに保存されます。</p>
         </footer>
-      </section>`;
+      </section>`);
 
     app.querySelector('[data-action="new-book"]')?.addEventListener("click", () => openBookDialog());
   }
@@ -179,7 +247,7 @@
     setTheme(book.color);
     document.title = `${book.name}｜表紙`;
 
-    app.innerHTML = `
+    setAppHtml(`
       <section class="book-cover-page" style="--cover:${escapeHtml(book.color)};--book-color:${escapeHtml(book.color)}">
         <a class="book-cover-back" href="#">← 本棚へ戻る</a>
         <div class="book-cover-object" aria-label="${escapeHtml(book.name)}の表紙">
@@ -196,7 +264,7 @@
           <button type="button" data-action="edit-book">表紙を整える</button>
           ${stats.isTemplate ? "" : `<button class="danger-link" type="button" data-action="delete-book">この帳を削除</button>`}
         </div>
-      </section>`;
+      </section>`);
 
     app.querySelector('[data-action="edit-book"]')?.addEventListener("click", () => openBookDialog(book));
     app.querySelector('[data-action="delete-book"]')?.addEventListener("click", async () => {
@@ -219,13 +287,15 @@
     const intro = stats.isTemplate
       ? `${stats.total}${recordUnit(book)}のうち、${stats.visited}${recordUnit(book)}を訪問。`
       : `47都道府県のうち、${stats.prefectures}都道府県に${stats.total}件の記録。`;
-    app.innerHTML = paperShell(`
+    setAppHtml(paperShell(`
       <article class="folio-page">
         ${folioHead({ backHref: routeHref("book", book.id), backLabel: "表紙", eyebrow: templateLabel(book), title: book.name, intro, seal: "帳" })}
         <section class="map-spread">
           <figure class="map-sheet">
             <div class="map-graphic">
-              <img src="assets/images/japan-regions-blank.svg" alt="地方ごとに色分けした日本地図" width="570" height="755">
+              <object data-map-object data="assets/images/japan-regions-blank.svg" type="image/svg+xml" aria-label="地方ごとに色分けした日本地図" width="570" height="755">
+                <img src="assets/images/japan-regions-blank.svg" alt="地方ごとに色分けした日本地図" width="570" height="755">
+              </object>
               ${regions.map((region) => `<a class="map-hit map-hit-${region.id}" href="${routeHref("region", book.id, region.id)}">${escapeHtml(region.name)}</a>`).join("")}
             </div>
             <figcaption>地方を押して、都道府県を選ぶ。</figcaption>
@@ -240,7 +310,9 @@
             }).join("")}
           </nav>
         </section>
-      </article>`, book, "book-page");
+      </article>`, book, "book-page"));
+
+    bindMapRegions(book);
 
   }
 
@@ -257,7 +329,7 @@
       ? `${regionEntries.length}${recordUnit(book)}を、都道府県ごとに収録しています。`
       : `${region.prefectures.length}都道府県から、記録する場所を選びます。`;
 
-    app.innerHTML = paperShell(`
+    setAppHtml(paperShell(`
       <article class="folio-page">
         ${folioHead({ backHref: routeHref("map", book.id), backLabel: "日本地図", eyebrow: "都道府県を選ぶ", title: region.name, intro: regionIntro, seal: region.mark })}
         <section class="folio-body">
@@ -272,7 +344,7 @@
             }).join("")}
           </div>
         </section>
-      </article>`, book, "book-page");
+      </article>`, book, "book-page"));
   }
 
   async function renderPrefecture(bookId, prefecture, token) {
@@ -291,7 +363,7 @@
       : (entries.length ? `${entries.length}件の${noun}を綴じています。` : `この都道府県の${noun}はまだありません。`);
     const addLabel = stats.isTemplate ? `登録外の${noun}を追加` : `${noun}を追加`;
 
-    app.innerHTML = paperShell(`
+    setAppHtml(paperShell(`
       <article class="folio-page">
         ${folioHead({ backHref: routeHref("region", book.id, region.id), backLabel: region.name, eyebrow: `${book.name}の記録`, title: safePrefecture, intro, seal: "記" })}
         <section class="folio-body">
@@ -311,7 +383,7 @@
               </article>`).join("") : `<p class="empty-note">最初の${escapeHtml(noun)}を、この頁に追加できます。</p>`}
           </div>
         </section>
-      </article>`, book, "book-page");
+      </article>`, book, "book-page"));
 
     app.querySelector('[data-action="new-entry"]')?.addEventListener("click", () => openEntryDialog(book, safePrefecture));
     hydrateEntryPhotos(entries, token);
@@ -369,7 +441,7 @@
       : `<div class="detail-photo-empty"><span aria-hidden="true">写</span><strong>${image.needsPermission ? "写真を開くには許可が必要です" : "写真はまだありません"}</strong><small>${escapeHtml(media?.fileName || "端末内の写真を選べます")}</small></div>`;
     const storageText = media?.mode === "reference" ? "元の画像ファイルを参照しています" : media?.mode === "copy" ? "画像をこの端末の手帳内に保存しています" : "対応端末では元の画像ファイルを参照します";
 
-    app.innerHTML = paperShell(`
+    setAppHtml(paperShell(`
       <article class="detail-page">
         <section class="detail-photo-panel">
           <a class="folio-back" href="${routeHref("prefecture", book.id, entry.prefecture)}">← ${escapeHtml(entry.prefecture)}</a>
@@ -399,7 +471,7 @@
             ? `<button class="delete-entry" type="button" data-action="clear-entry">訪問記録を消す</button>`
             : `<button class="delete-entry" type="button" data-action="delete-entry">この記録を削除</button>`}
         </section>
-      </article>`, book, "detail-book-page");
+      </article>`, book, "detail-book-page"));
 
     bindEntryEditor(entry);
     app.querySelector('[data-action="choose-photo"]')?.addEventListener("click", () => choosePhoto(entry));
@@ -603,19 +675,24 @@
 
   function renderMissing(message, href, label) {
     setTheme();
-    app.innerHTML = paperShell(`<section class="missing-page"><span class="page-seal" aria-hidden="true">空</span><h1>${escapeHtml(message)}</h1><a href="${href}">${escapeHtml(label)}</a></section>`, null, "book-page");
+    setAppHtml(paperShell(`<section class="missing-page"><span class="page-seal" aria-hidden="true">空</span><h1>${escapeHtml(message)}</h1><a href="${href}">${escapeHtml(label)}</a></section>`, null, "book-page"));
   }
 
   function renderFailure(error) {
     console.error(error);
-    app.innerHTML = paperShell(`<section class="missing-page"><span class="page-seal" aria-hidden="true">困</span><h1>手帳を開けませんでした</h1><p>端末の保存領域を確認して、もう一度開いてください。</p><button class="primary-button" type="button" onclick="location.reload()">もう一度開く</button></section>`, null, "book-page");
+    setAppHtml(paperShell(`<section class="missing-page"><span class="page-seal" aria-hidden="true">困</span><h1>手帳を開けませんでした</h1><p>端末の保存領域を確認して、もう一度開いてください。</p><button class="primary-button" type="button" onclick="location.reload()">もう一度開く</button></section>`, null, "book-page"));
   }
 
   async function renderRoute() {
     const token = ++renderToken;
     window.clearTimeout(saveTimer);
+    const nextRoute = readRoute();
+    turnDirection = pageTurnDirection(previousRoute, nextRoute);
+    previousRoute = nextRoute;
+    await turnPageOut(turnDirection);
+    if (token !== renderToken) return;
     releaseObjectUrls();
-    const [page, first, second] = readRoute();
+    const [page, first, second] = nextRoute;
     window.scrollTo({ top: 0, behavior: "instant" });
 
     try {
