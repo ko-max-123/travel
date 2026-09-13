@@ -114,7 +114,7 @@
           <span class="cover-record">${prefectures}都道府県・${places.length}市町村</span>
         </a>
         <a class="cover-open" href="map.html">表紙をひらく <span aria-hidden="true">›</span></a>
-        <a class="books-home" href="../index.html">三冊の目次へ</a>
+        <a class="books-home" href="../archive.html">以前の三冊へ</a>
       </section>`;
   }
 

@@ -163,6 +163,16 @@ a { color: inherit; -webkit-tap-highlight-color: transparent; }
 .book-caption { display: grid; gap: .15rem; text-align: center; }
 .book-caption strong { font: 700 1rem var(--serif); letter-spacing: .14em; }
 .book-caption small { color: var(--muted); font-size: .66rem; letter-spacing: .06em; }
+.collection-home {
+  justify-self: center;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: #554b3d;
+  font: 700 .78rem var(--serif);
+  letter-spacing: .12em;
+  text-underline-offset: .35em;
+}
 
 @media (max-width: 720px) {
   .contents { width: calc(100% - 18px); gap: 1.8rem; padding: 1.5rem 0 2.2rem; }

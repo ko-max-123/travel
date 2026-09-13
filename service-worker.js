@@ -1,7 +1,8 @@
-const CACHE_NAME = "tabi-no-mokuji-v1";
+const CACHE_NAME = "collection-notebooks-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./archive.html",
   "./pokefuta.html",
   "./map.html",
   "./list.html",
@@ -11,8 +12,12 @@ const APP_SHELL = [
   "./offline.html",
   "./manifest.webmanifest",
   "./assets/css/contents.css",
+  "./assets/css/collection.css",
   "./assets/css/style.css",
   "./assets/js/pwa.js",
+  "./assets/js/library-data.js",
+  "./assets/js/library-db.js",
+  "./assets/js/library-app.js",
   "./assets/js/app.js",
   "./assets/js/data.js",
   "./assets/js/official-spots.js",
@@ -55,7 +60,7 @@ self.addEventListener("activate", (event) => {
     caches.keys()
       .then((keys) => Promise.all(
         keys
-          .filter((key) => key.startsWith("tabi-no-mokuji-") && key !== CACHE_NAME)
+          .filter((key) => ["tabi-no-mokuji-", "collection-notebooks-"].some((prefix) => key.startsWith(prefix)) && key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       ))
       .then(() => self.clients.claim())

@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "旅の目次｜三冊の旅帖",
-  "short_name": "旅の目次",
-  "description": "ポケフタ、一宮、都道府県。三冊の旅帖に残した自分の旅の記録。",
+  "name": "わたしの収集手帳",
+  "short_name": "収集手帳",
+  "description": "好きな名前と色の帳を作り、写真と言葉を端末内に残す自分だけの収集手帳。",
   "lang": "ja",
   "dir": "ltr",
   "start_url": "./index.html",
@@ -26,19 +26,19 @@
   ],
   "shortcuts": [
     {
-      "name": "ポケフタ旅帖",
+      "name": "ポケフタ旅帖を開く",
       "short_name": "ポケフタ",
-      "url": "./pokefuta.html"
+      "url": "./index.html#book/template-pokefuta"
     },
     {
-      "name": "一宮巡礼帖",
+      "name": "一宮巡礼帖を開く",
       "short_name": "一宮",
-      "url": "./ichinomiya/index.html"
+      "url": "./index.html#book/template-ichinomiya"
     },
     {
-      "name": "都道府県訪問帖",
-      "short_name": "都道府県",
-      "url": "./todofuken/index.html"
+      "name": "以前の三冊を開く",
+      "short_name": "以前の旅帖",
+      "url": "./archive.html"
     }
   ]
 }

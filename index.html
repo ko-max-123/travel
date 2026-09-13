@@ -4,47 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#5c4935">
-  <meta name="description" content="ポケフタ、一宮、都道府県。三冊の旅の記録から、開く一冊を選ぶ目次。">
-  <title>旅の目次｜三冊の旅帖</title>
+  <meta name="description" content="好きな名前と色の帳を作り、写真と言葉を端末内に残す自分だけの収集手帳。">
+  <title>わたしの収集手帳</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="assets/icons/app-icon-192.png">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="assets/css/contents.css">
+  <link rel="stylesheet" href="assets/css/collection.css">
 </head>
 <body>
-  <main class="contents" id="main">
-    <header class="contents-heading">
-      <p>三冊の旅帖</p>
-      <h1>旅の目次</h1>
-      <span>開く一冊を選ぶ</span>
-    </header>
-
-    <nav class="book-selection" aria-label="旅帖を選ぶ">
-      <a class="book-choice book-pokefuta" href="pokefuta.html">
-        <span class="mini-cover">
-          <span class="mini-binding" aria-hidden="true"></span>
-          <span class="mini-label"><small>ぽけふた</small><strong>蓋印旅帖</strong><i aria-hidden="true">蓋</i></span>
-        </span>
-        <span class="book-caption"><strong>ポケフタ</strong><small>マンホールを巡る</small></span>
-      </a>
-
-      <a class="book-choice book-ichinomiya" href="ichinomiya/index.html">
-        <span class="mini-cover">
-          <span class="mini-binding" aria-hidden="true"></span>
-          <span class="mini-label"><small>いちのみや</small><strong>一宮巡礼帖</strong><i aria-hidden="true">詣</i></span>
-        </span>
-        <span class="book-caption"><strong>一宮</strong><small>諸国の古社を巡る</small></span>
-      </a>
-
-      <a class="book-choice book-todofuken" href="todofuken/index.html">
-        <span class="mini-cover">
-          <span class="mini-binding" aria-hidden="true"></span>
-          <span class="mini-label"><small>にほんをあるく</small><strong>都道府県<br>訪問帖</strong><i aria-hidden="true">旅</i></span>
-        </span>
-        <span class="book-caption"><strong>都道府県</strong><small>訪ねた町を振り返る</small></span>
-      </a>
-    </nav>
-  </main>
+  <a class="skip-link" href="#app">本文へ</a>
+  <main id="app" aria-live="polite"></main>
+  <div id="dialog-root"></div>
+  <noscript><p class="noscript-note">この収集手帳を使うにはJavaScriptを有効にしてください。</p></noscript>
+  <script src="assets/js/library-data.js"></script>
+  <script src="assets/js/library-db.js"></script>
+  <script src="assets/js/library-app.js"></script>
   <script src="assets/js/pwa.js"></script>
 </body>
 </html>
