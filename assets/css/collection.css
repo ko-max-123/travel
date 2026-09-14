@@ -311,6 +311,15 @@ img { max-width: 100%; }
 .color-grid input:focus-visible + span { outline: 3px solid var(--red); outline-offset: 3px; }
 .dialog-submit { width: 100%; margin-top: .5rem; }
 .dialog-submit:disabled { opacity: .55; cursor: wait; }
+.confirm-dialog { width: min(520px,calc(100% - 24px)); }
+.confirm-sheet { overflow: hidden; }
+.confirm-sheet h2 { margin-bottom: 1rem; }
+.confirm-message { margin: 0; color: var(--muted); font-family: var(--serif); line-height: 1.9; }
+.confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin-top: 2rem; }
+.confirm-actions button { min-height: 50px; padding: .7rem .8rem; border-radius: 2px; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
+.confirm-cancel { color: var(--ink); background: rgba(255,252,243,.58); border: 1px solid var(--line); }
+.confirm-delete { color: #fff9eb; background: #864139; border: 1px solid #67302b; }
+.confirm-actions button:focus-visible { outline: 2px solid var(--red); outline-offset: 3px; }
 .missing-page { min-height: calc(100svh - 70px); display: grid; place-content: center; justify-items: center; gap: 1rem; padding: 2rem; text-align: center; }
 .missing-page h1 { margin: 0; font: 700 clamp(1.5rem,5vw,2.5rem) var(--serif); }
 .missing-page a { min-height: 44px; display: inline-flex; align-items: center; text-underline-offset: .3em; }
@@ -381,6 +390,8 @@ img { max-width: 100%; }
   .dialog-sheet { max-height: calc(100svh - 12px); padding: 1.5rem 1rem 2rem; }
   .dialog-sheet h2 { padding-right: 2.5rem; font-size: 1.75rem; }
   .color-grid { grid-template-columns: repeat(4,1fr); gap: .8rem; }
+  .confirm-sheet h2 { padding-right: 0; }
+  .confirm-actions { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 380px) {

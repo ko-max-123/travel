@@ -172,6 +172,50 @@
     return `<div class="paper-shell ${extraClass}" style="--book-color:${escapeHtml(color)}"><span class="page-binding" aria-hidden="true"></span>${content}</div>`;
   }
 
+  function confirmDeletion(message, confirmLabel = "削除する") {
+    return new Promise((resolve) => {
+      dialogRoot.innerHTML = `
+        <dialog class="book-dialog confirm-dialog" aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-message">
+          <div class="dialog-sheet confirm-sheet">
+            <p class="eyebrow">大切な記録の確認</p>
+            <h2 id="delete-confirm-title">本当に削除しますか</h2>
+            <p class="confirm-message" id="delete-confirm-message">${escapeHtml(message)}</p>
+            <div class="confirm-actions">
+              <button class="confirm-cancel" type="button" data-confirm-cancel>削除しない</button>
+              <button class="confirm-delete" type="button" data-confirm-delete>${escapeHtml(confirmLabel)}</button>
+            </div>
+          </div>
+        </dialog>`;
+
+      const dialog = dialogRoot.querySelector("dialog");
+      const cancelButton = dialogRoot.querySelector("[data-confirm-cancel]");
+      const deleteButton = dialogRoot.querySelector("[data-confirm-delete]");
+
+      const closeDialog = (confirmed) => {
+        dialog.returnValue = confirmed ? "delete" : "cancel";
+        dialog.close();
+      };
+
+      dialog.addEventListener("cancel", (event) => {
+        event.preventDefault();
+        closeDialog(false);
+      });
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) closeDialog(false);
+      });
+      dialog.addEventListener("close", () => {
+        const confirmed = dialog.returnValue === "delete";
+        dialogRoot.innerHTML = "";
+        resolve(confirmed);
+      }, { once: true });
+      cancelButton?.addEventListener("click", () => closeDialog(false));
+      deleteButton?.addEventListener("click", () => closeDialog(true));
+
+      dialog.showModal();
+      cancelButton?.focus();
+    });
+  }
+
   function folioHead({ backHref, backLabel, eyebrow, title, intro, seal = "集", actions = "" }) {
     return `
       <header class="folio-head">
@@ -271,7 +315,7 @@
 
     app.querySelector('[data-action="edit-book"]')?.addEventListener("click", () => openBookDialog(book));
     app.querySelector('[data-action="delete-book"]')?.addEventListener("click", async () => {
-      if (!window.confirm(`「${book.name}」と中の記録をすべて削除しますか？`)) return;
+      if (!await confirmDeletion(`「${book.name}」と中の記録をすべて削除します。この操作は取り消せません。`, "帳を削除する")) return;
       await store.deleteBook(book.id);
       window.location.hash = "";
       await renderRoute();
@@ -546,12 +590,12 @@
       }
     });
     app.querySelector('[data-action="remove-photo"]')?.addEventListener("click", async () => {
-      if (!window.confirm("この記録から写真を外しますか？ 元の画像ファイルは削除されません。")) return;
+      if (!await confirmDeletion("この記録から写真を外します。端末にある元の画像ファイルは削除されません。", "写真を外す")) return;
       await store.deleteMedia(entry.id);
       await renderRoute();
     });
     app.querySelector('[data-action="clear-entry"]')?.addEventListener("click", async () => {
-      if (!window.confirm(`「${entry.title}」の訪問日・写真・メモを消しますか？`)) return;
+      if (!await confirmDeletion(`「${entry.title}」の訪問日・写真・メモを消します。この操作は取り消せません。`, "訪問記録を消す")) return;
       await Promise.all([
         store.updateEntry(entry.id, { visited: false, visitedOn: "", note: "" }),
         store.deleteMedia(entry.id)
@@ -559,7 +603,7 @@
       await renderRoute();
     });
     app.querySelector('[data-action="delete-entry"]')?.addEventListener("click", async () => {
-      if (!window.confirm(`「${entry.title}」を削除しますか？`)) return;
+      if (!await confirmDeletion(`「${entry.title}」を削除します。この操作は取り消せません。`, "記録を削除する")) return;
       await store.deleteEntry(entry.id);
       window.location.hash = routeHref("prefecture", book.id, entry.prefecture);
     });
