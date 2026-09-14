@@ -7,6 +7,7 @@
   const { colors, regions } = window.COLLECTION_LIBRARY_DATA;
   const allPrefectures = regions.flatMap((region) => region.prefectures);
   const numerals = ["壱", "弐", "参", "四", "五", "六", "七", "八"];
+  const tutorialStorageKey = "collection-notebooks-tutorial-v1";
   let renderToken = 0;
   let activeObjectUrls = [];
   let saveTimer = 0;
@@ -172,6 +173,118 @@
     return `<div class="paper-shell ${extraClass}" style="--book-color:${escapeHtml(color)}"><span class="page-binding" aria-hidden="true"></span>${content}</div>`;
   }
 
+  function hasSeenTutorial() {
+    try {
+      return window.localStorage.getItem(tutorialStorageKey) === "done";
+    } catch {
+      return false;
+    }
+  }
+
+  function rememberTutorial() {
+    try {
+      window.localStorage.setItem(tutorialStorageKey, "done");
+    } catch {
+      // 保存できない環境でも、現在の利用はそのまま続ける。
+    }
+  }
+
+  function openTutorial() {
+    const pages = [
+      {
+        mark: "壱",
+        eyebrow: "この手帳について",
+        title: "旅の記録を、自分のために",
+        body: `
+          <p>訪れた場所の写真や言葉を、都道府県ごとの頁に残す個人用の収集手帳です。</p>
+          <ul>
+            <li>ポケフタと一宮は、地名や件数が入った状態で使えます。</li>
+            <li>自分で作る帳には、好きな収集テーマを記録できます。</li>
+            <li>写真・場所・日付・メモをひとつの頁にまとめられます。</li>
+          </ul>`
+      },
+      {
+        mark: "弐",
+        eyebrow: "利用できる範囲",
+        title: "帳と写真の制限",
+        body: `
+          <ul>
+            <li>自分で追加できる帳は、デフォルトの2冊とは別に3冊までです。</li>
+            <li>帳の名前は1〜12文字で、表紙は16色から選びます。</li>
+            <li>写真は最大1500枚規模を想定して軽量化しますが、実際に保存できる枚数は端末の空き容量によって変わります。</li>
+          </ul>`
+      },
+      {
+        mark: "参",
+        eyebrow: "大切な注意事項",
+        title: "記録は、この端末の中だけ",
+        body: `
+          <ul>
+            <li>帳・文章・軽量化した写真はサーバーへ送られず、この端末のブラウザ内に保存されます。</li>
+            <li>アカウント同期やバックアップ機能はありません。別の端末へ自動では引き継がれません。</li>
+            <li>ブラウザのサイトデータを削除すると、記録や写真も消えます。</li>
+          </ul>
+          <p class="tutorial-caution">端末の「データを消去」は行わず、大切な元写真は写真アプリにも残してください。</p>`
+      }
+    ];
+    let pageIndex = 0;
+
+    dialogRoot.innerHTML = `
+      <dialog class="book-dialog tutorial-dialog" aria-labelledby="tutorial-title">
+        <div class="dialog-sheet tutorial-sheet">
+          <div class="tutorial-progress" aria-label="案内の進み具合">
+            ${pages.map((_, index) => `<span data-tutorial-dot="${index}">${index + 1}</span>`).join("")}
+          </div>
+          <div class="tutorial-page" data-tutorial-page></div>
+          <div class="tutorial-actions">
+            <button class="tutorial-back" type="button" data-tutorial-back>前へ</button>
+            <button class="primary-button tutorial-next" type="button" data-tutorial-next>次へ</button>
+          </div>
+        </div>
+      </dialog>`;
+
+    const dialog = dialogRoot.querySelector("dialog");
+    const page = dialogRoot.querySelector("[data-tutorial-page]");
+    const backButton = dialogRoot.querySelector("[data-tutorial-back]");
+    const nextButton = dialogRoot.querySelector("[data-tutorial-next]");
+
+    const renderPage = () => {
+      const current = pages[pageIndex];
+      page.innerHTML = `
+        <span class="tutorial-seal" aria-hidden="true">${current.mark}</span>
+        <p class="eyebrow">${current.eyebrow}</p>
+        <h2 id="tutorial-title">${current.title}</h2>
+        <div class="tutorial-copy">${current.body}</div>`;
+      dialogRoot.querySelectorAll("[data-tutorial-dot]").forEach((dot, index) => {
+        dot.classList.toggle("is-current", index === pageIndex);
+      });
+      backButton.hidden = pageIndex === 0;
+      nextButton.textContent = pageIndex === pages.length - 1 ? "手帳をはじめる" : "次へ";
+      nextButton.focus();
+    };
+
+    dialog.addEventListener("cancel", (event) => event.preventDefault());
+    backButton.addEventListener("click", () => {
+      if (pageIndex > 0) {
+        pageIndex -= 1;
+        renderPage();
+      }
+    });
+    nextButton.addEventListener("click", () => {
+      if (pageIndex < pages.length - 1) {
+        pageIndex += 1;
+        renderPage();
+        return;
+      }
+      rememberTutorial();
+      dialog.close();
+    });
+    dialog.addEventListener("close", () => { dialogRoot.innerHTML = ""; }, { once: true });
+
+    dialog.showModal();
+    renderPage();
+  }
+
   function confirmDeletion(message, confirmLabel = "削除する") {
     return new Promise((resolve) => {
       dialogRoot.innerHTML = `
@@ -272,6 +385,13 @@
                 </span>
               </a>`;
           }).join("")}
+          <button class="shelf-book guide-book" type="button" data-action="open-guide" style="--cover:#544d43">
+            <span class="shelf-cover">
+              <span class="shelf-binding" aria-hidden="true"></span>
+              <span class="shelf-label"><small>この手帳について</small><strong>使い方・注意</strong><i aria-hidden="true">案</i></span>
+              <span class="shelf-count">いつでも読めます</span>
+            </span>
+          </button>
           <button class="new-book" type="button" data-action="new-book" ${canCreateBook ? "" : "disabled"}>
             <span aria-hidden="true">${canCreateBook ? "＋" : "三"}</span>
             <strong>${canCreateBook ? "新しい帳" : "3冊作成済み"}</strong>
@@ -284,6 +404,7 @@
       </section>`);
 
     if (canCreateBook) app.querySelector('[data-action="new-book"]')?.addEventListener("click", () => openBookDialog());
+    app.querySelector('[data-action="open-guide"]')?.addEventListener("click", openTutorial);
   }
 
   async function renderCover(bookId, token) {
@@ -981,5 +1102,8 @@
   }
 
   window.addEventListener("hashchange", renderRoute);
-  store.ready().then(renderRoute).catch(renderFailure);
+  store.ready().then(async () => {
+    await renderRoute();
+    if (!hasSeenTutorial()) openTutorial();
+  }).catch(renderFailure);
 })();
