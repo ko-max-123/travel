@@ -202,6 +202,10 @@
   }
 
   async function createBook({ name, color }) {
+    const books = await getBooks();
+    if (books.filter((book) => book.template === "custom").length >= 3) {
+      throw new Error("新しく作れる帳は3冊までです。");
+    }
     const now = new Date().toISOString();
     const details = validateBookDetails(name, color);
     return putRecord("books", {

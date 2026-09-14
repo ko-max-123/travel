@@ -13,6 +13,7 @@
   let previousRoute = null;
   let turnDirection = "none";
   let turnTimer = 0;
+  let photoObserver = null;
 
   function escapeHtml(value) {
     return String(value ?? "")
@@ -206,6 +207,8 @@
       entries: await store.getEntries(book.id)
     })));
     if (token !== renderToken) return;
+    const customBookCount = books.filter((book) => book.template === "custom").length;
+    const canCreateBook = customBookCount < 3;
 
     setAppHtml(`
       <section class="shelf-page">
@@ -225,10 +228,10 @@
                 </span>
               </a>`;
           }).join("")}
-          <button class="new-book" type="button" data-action="new-book">
-            <span aria-hidden="true">＋</span>
-            <strong>新しい帳</strong>
-            <small>名前と色を決める</small>
+          <button class="new-book" type="button" data-action="new-book" ${canCreateBook ? "" : "disabled"}>
+            <span aria-hidden="true">${canCreateBook ? "＋" : "三"}</span>
+            <strong>${canCreateBook ? "新しい帳" : "3冊作成済み"}</strong>
+            <small>${canCreateBook ? `あと${3 - customBookCount}冊作れます` : "新しい帳は3冊まで"}</small>
           </button>
         </div>
         <footer class="shelf-foot">
@@ -236,7 +239,7 @@
         </footer>
       </section>`);
 
-    app.querySelector('[data-action="new-book"]')?.addEventListener("click", () => openBookDialog());
+    if (canCreateBook) app.querySelector('[data-action="new-book"]')?.addEventListener("click", () => openBookDialog());
   }
 
   async function renderCover(bookId, token) {
@@ -391,6 +394,7 @@
 
   async function mediaFile(media, askPermission) {
     if (!media) return { file: null, needsPermission: false };
+    if (media.blob instanceof Blob) return { file: media.blob, needsPermission: false };
     if (media.mode === "reference" && media.handle?.getFile) {
       try {
         let permission = "granted";
@@ -399,58 +403,89 @@
           permission = await media.handle.requestPermission({ mode: "read" });
         }
         if (permission === "granted") return { file: await media.handle.getFile(), needsPermission: false };
-        if (media.blob instanceof Blob) return { file: media.blob, needsPermission: false };
         return { file: null, needsPermission: true };
       } catch {
-        if (media.blob instanceof Blob) return { file: media.blob, needsPermission: false };
         return { file: null, needsPermission: true };
       }
     }
-    if (media.blob instanceof Blob) return { file: media.blob, needsPermission: false };
     return { file: null, needsPermission: false };
   }
 
-  async function keepReferencePreview(media, file) {
-    if (!media || media.mode !== "reference" || media.blob instanceof Blob || !(file instanceof Blob)) return;
+  async function optimizeStoredMedia(media, file) {
+    if (!media || media.optimized || !(file instanceof Blob)) return media;
+    const optimized = await optimizePhoto(file);
+    const nextMedia = {
+      ...media,
+      ...optimized,
+      fileName: media.fileName || file.name || "photo",
+      originalBytes: media.originalBytes || file.size
+    };
     try {
-      await store.saveMedia({ ...media, blob: file });
+      return await store.saveMedia(nextMedia);
     } catch {
-      await store.saveMedia({
-        entryId: media.entryId,
-        mode: "copy",
-        blob: file,
-        fileName: media.fileName || file.name,
-        mimeType: file.type
-      });
+      try {
+        return await store.saveMedia({
+          entryId: media.entryId,
+          mode: "copy",
+          ...optimized,
+          fileName: media.fileName || file.name || "photo",
+          originalBytes: media.originalBytes || file.size
+        });
+      } catch {
+        return media;
+      }
     }
   }
 
-  async function hydrateEntryPhotos(entries, token) {
-    await Promise.all(entries.map(async (entry) => {
-      const frame = app.querySelector(`[data-entry-photo="${CSS.escape(entry.id)}"]`);
-      if (!frame) return;
+  function hydrateEntryPhotos(entries, token) {
+    const entryById = new Map(entries.map((entry) => [entry.id, entry]));
+    const frames = [...app.querySelectorAll("[data-entry-photo]")];
+
+    const loadFrame = async (frame) => {
+      if (frame.dataset.photoLoaded === "true") return;
+      frame.dataset.photoLoaded = "true";
+      const entry = entryById.get(frame.dataset.entryPhoto);
+      if (!entry) return;
       const media = await store.getMedia(entry.id);
-      const result = await mediaFile(media, false);
       if (token !== renderToken || !frame.isConnected) return;
-      if (result.file) {
-        const url = makeObjectUrl(result.file);
+      const preview = media?.thumbnailBlob instanceof Blob ? media.thumbnailBlob : null;
+      if (preview) {
+        const url = makeObjectUrl(preview);
         frame.classList.add("has-photo");
-        frame.innerHTML = `<img src="${url}" alt="${escapeHtml(entry.title)}の写真">`;
-      } else if (result.needsPermission) {
-        frame.innerHTML = "<span>詳細画面で写真を開く</span>";
+        frame.innerHTML = `<img src="${url}" alt="${escapeHtml(entry.title)}の写真" loading="lazy" decoding="async">`;
+      } else if (media) {
+        frame.innerHTML = "<span>詳細を開くと画像を軽量化します</span>";
       }
-    }));
+    };
+
+    photoObserver?.disconnect();
+    if ("IntersectionObserver" in window) {
+      photoObserver = new IntersectionObserver((observed) => {
+        observed.forEach((item) => {
+          if (!item.isIntersecting) return;
+          photoObserver?.unobserve(item.target);
+          loadFrame(item.target);
+        });
+      }, { rootMargin: "320px 0px" });
+      frames.forEach((frame) => photoObserver.observe(frame));
+    } else {
+      frames.forEach(loadFrame);
+    }
   }
 
   async function renderEntry(bookId, entryId, token) {
-    const [book, entry, media] = await Promise.all([
+    const [book, entry, storedMedia] = await Promise.all([
       store.getBook(bookId),
       store.getEntry(entryId),
       store.getMedia(entryId)
     ]);
     if (!book || !entry || entry.bookId !== book.id) return renderMissing("記録が見つかりません。", "#", "本棚へ戻る");
-    const image = await mediaFile(media, false);
-    if (image.file) await keepReferencePreview(media, image.file);
+    let media = storedMedia;
+    let image = await mediaFile(media, false);
+    if (image.file && media && !media.optimized) {
+      media = await optimizeStoredMedia(media, image.file);
+      image = { file: media.blob instanceof Blob ? media.blob : image.file, needsPermission: false };
+    }
     if (token !== renderToken) return;
     setTheme(book.color);
     document.title = `${entry.title}｜${book.name}`;
@@ -459,11 +494,11 @@
       : `<div class="detail-photo-empty"><span aria-hidden="true">写</span><strong>${image.needsPermission ? "写真を開くには許可が必要です" : "写真はまだありません"}</strong><small>${escapeHtml(media?.fileName || "端末内の写真を選べます")}</small></div>`;
     const hasReferencePreview = media?.mode === "reference" && (media?.blob instanceof Blob || image.file instanceof Blob);
     const storageText = hasReferencePreview
-      ? "元の画像を参照し、再表示用データもこの端末内だけに保持しています。"
+      ? "元の画像を参照し、再表示用の軽量データもこの端末内だけに保持しています。"
       : media?.mode === "reference"
         ? "元の画像ファイルを参照しています。表示できない場合は、一度だけアクセスを許可してください。"
         : media?.mode === "copy"
-          ? "画像はアップロードせず、この端末の手帳内だけに保存しています。"
+          ? "画像はアップロードせず、軽量化してこの端末の手帳内だけに保存しています。"
           : "スマホでは端末の写真から選べます。画像はアップロードされません。";
     const photoPickerLabel = useSystemPhotoLibrary()
       ? (media ? "フォトから選び直す" : "フォトから選ぶ")
@@ -506,7 +541,7 @@
     app.querySelector('[data-action="grant-photo"]')?.addEventListener("click", async () => {
       const result = await mediaFile(media, true);
       if (result.file) {
-        await keepReferencePreview(media, result.file);
+        await optimizeStoredMedia(media, result.file);
         await renderRoute();
       }
     });
@@ -566,6 +601,120 @@
     form.addEventListener("submit", (event) => event.preventDefault());
   }
 
+  async function decodePhoto(file) {
+    if ("createImageBitmap" in window) {
+      try {
+        const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+        return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
+      } catch {
+        try {
+          const bitmap = await createImageBitmap(file);
+          return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
+        } catch {
+          // Image要素での読み込みへ切り替える。
+        }
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.addEventListener("load", () => resolve({
+        source: image,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        release: () => URL.revokeObjectURL(url)
+      }), { once: true });
+      image.addEventListener("error", () => {
+        URL.revokeObjectURL(url);
+        reject(new Error("画像を読み込めませんでした。"));
+      }, { once: true });
+      image.src = url;
+    });
+  }
+
+  function drawPhoto(source, sourceWidth, sourceHeight, maxDimension) {
+    const ratio = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sourceWidth * ratio));
+    canvas.height = Math.max(1, Math.round(sourceHeight * ratio));
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("画像を加工できませんでした。");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  function canvasBlob(canvas, type, quality) {
+    return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+  }
+
+  async function resizedPhoto(source, width, height, maxDimension, targetBytes) {
+    const dimensions = [1, .86, .74];
+    const qualities = [.74, .66, .58, .5, .44];
+    let smallest = null;
+
+    for (const dimension of dimensions) {
+      const canvas = drawPhoto(source, width, height, Math.round(maxDimension * dimension));
+      for (const type of ["image/webp", "image/jpeg"]) {
+        let supported = true;
+        for (const quality of qualities) {
+          const blob = await canvasBlob(canvas, type, quality);
+          if (!blob || blob.type !== type) {
+            supported = false;
+            break;
+          }
+          const candidate = { blob, width: canvas.width, height: canvas.height };
+          if (!smallest || blob.size < smallest.blob.size) smallest = candidate;
+          if (blob.size <= targetBytes) {
+            canvas.width = 1;
+            canvas.height = 1;
+            return candidate;
+          }
+        }
+        if (supported) break;
+      }
+      canvas.width = 1;
+      canvas.height = 1;
+    }
+
+    if (!smallest) throw new Error("画像を圧縮できませんでした。");
+    return smallest;
+  }
+
+  async function optimizePhoto(file) {
+    let decoded;
+    try {
+      decoded = await decodePhoto(file);
+      const detail = await resizedPhoto(decoded.source, decoded.width, decoded.height, 1280, 360 * 1024);
+      const thumbnail = await resizedPhoto(decoded.source, decoded.width, decoded.height, 360, 55 * 1024);
+      return {
+        blob: detail.blob,
+        thumbnailBlob: thumbnail.blob,
+        mimeType: detail.blob.type,
+        optimized: true,
+        compressionVersion: 1,
+        width: detail.width,
+        height: detail.height,
+        originalBytes: file.size,
+        storedBytes: detail.blob.size + thumbnail.blob.size
+      };
+    } catch {
+      return {
+        blob: file,
+        thumbnailBlob: null,
+        mimeType: file.type,
+        optimized: "passthrough",
+        compressionVersion: 1,
+        originalBytes: file.size,
+        storedBytes: file.size
+      };
+    } finally {
+      decoded?.release();
+    }
+  }
+
   function useSystemPhotoLibrary() {
     if (navigator.userAgentData?.mobile === true) return true;
     if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "")) return true;
@@ -573,9 +722,17 @@
   }
 
   async function choosePhoto(entry) {
+    const pickerButton = app.querySelector('[data-action="choose-photo"]');
+    const idleLabel = pickerButton?.textContent || "写真を選ぶ";
+    if (pickerButton) {
+      pickerButton.disabled = true;
+      pickerButton.textContent = "フォトを開いています…";
+    }
     try {
+      let file;
+      let handle = null;
       if (!useSystemPhotoLibrary() && "showOpenFilePicker" in window) {
-        const [handle] = await window.showOpenFilePicker({
+        [handle] = await window.showOpenFilePicker({
           id: "collection-photo",
           multiple: false,
           types: [{
@@ -583,28 +740,47 @@
             accept: { "image/*": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif"] }
           }]
         });
-        const file = await handle.getFile();
+        file = await handle.getFile();
+      } else {
+        file = await fallbackFilePicker();
+      }
+      if (!file) return;
+      if (pickerButton?.isConnected) pickerButton.textContent = "画像を軽量化しています…";
+
+      const optimized = await optimizePhoto(file);
+      const media = {
+        entryId: entry.id,
+        mode: handle ? "reference" : "copy",
+        ...(handle ? { handle } : {}),
+        ...optimized,
+        fileName: file.name || "photo",
+        originalBytes: file.size
+      };
+
+      if (handle) {
         try {
-          await store.saveMedia({
-            entryId: entry.id,
-            mode: "reference",
-            handle,
-            blob: file,
-            fileName: handle.name,
-            mimeType: file.type
-          });
+          await store.saveMedia(media);
         } catch {
-          await store.saveMedia({ entryId: entry.id, mode: "copy", blob: file, fileName: file.name, mimeType: file.type });
+          const copyMedia = { ...media, mode: "copy" };
+          delete copyMedia.handle;
+          await store.saveMedia(copyMedia);
         }
       } else {
-        const file = await fallbackFilePicker();
-        if (!file) return;
-        await store.saveMedia({ entryId: entry.id, mode: "copy", blob: file, fileName: file.name, mimeType: file.type });
+        await store.saveMedia(media);
       }
       await requestPersistentStorage();
       await renderRoute();
     } catch (error) {
-      if (error?.name !== "AbortError") window.alert("写真を読み込めませんでした。別の画像を選んでください。");
+      if (error?.name === "QuotaExceededError") {
+        window.alert("端末の保存容量が不足しています。不要な写真を外すか、端末の空き容量を確認してください。");
+      } else if (error?.name !== "AbortError") {
+        window.alert("写真を読み込めませんでした。別の画像を選んでください。");
+      }
+    } finally {
+      if (pickerButton?.isConnected) {
+        pickerButton.disabled = false;
+        pickerButton.textContent = idleLabel;
+      }
     }
   }
 
@@ -678,6 +854,8 @@
         const coverHref = routeHref("book", saved.id);
         if (window.location.hash === coverHref) await renderRoute();
         else window.location.hash = coverHref;
+      } catch (error) {
+        window.alert(error?.message || "帳を作成できませんでした。");
       } finally {
         saveButton.disabled = false;
       }
@@ -735,6 +913,8 @@
   async function renderRoute() {
     const token = ++renderToken;
     window.clearTimeout(saveTimer);
+    photoObserver?.disconnect();
+    photoObserver = null;
     const nextRoute = readRoute();
     turnDirection = pageTurnDirection(previousRoute, nextRoute);
     previousRoute = nextRoute;
