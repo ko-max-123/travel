@@ -1,4 +1,4 @@
-const CACHE_NAME = "collection-notebooks-v4";
+const CACHE_NAME = "collection-notebooks-v5";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -50,7 +50,9 @@ const APP_SHELL = [
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then((cache) => cache.addAll(
+        APP_SHELL.map((url) => new Request(url, { cache: "reload" }))
+      ))
       .then(() => self.skipWaiting())
   );
 });
@@ -71,7 +73,7 @@ async function networkFirst(request, useOfflinePage = false) {
   const cache = await caches.open(CACHE_NAME);
 
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: "no-cache" });
     if (response.ok) await cache.put(request, response.clone());
     return response;
   } catch {
