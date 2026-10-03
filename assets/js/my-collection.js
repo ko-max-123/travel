@@ -3815,16 +3815,16 @@ window.MY_POKEFUTA_COLLECTION = {
 
   // 長野県｜岡谷市｜岡谷市｜モスノウ・ユキハミ（ID: 481）
   "481": {
-    photo: "",
-    visited: false,
+    photo: "assets/photos/481_長野_岡谷_蚕糸公園.jpg",
+    visited: true,
     photographed: "",
     memo: ""
   },
 
   // 長野県｜伊那市｜伊那市｜バサギリ・ヒヒダルマ・アマージョ（ID: 482）
   "482": {
-    photo: "",
-    visited: false,
+    photo: "assets/photos/482_長野_伊那_みはらしファーム.jpg",
+    visited: true,
     photographed: "",
     memo: ""
   },

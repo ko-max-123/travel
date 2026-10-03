@@ -157,8 +157,8 @@ window.MY_ICHINOMIYA_COLLECTION = {
 
   // 山梨県｜甲斐国｜浅間神社（ID: 020）
   "020": {
-    photo: "",
-    visited: false,
+    photo: "assets/photos/020_山梨_浅間神社.jpg",
+    visited: true,
     worshipped: "",
     memo: ""
   },
@@ -261,16 +261,16 @@ window.MY_ICHINOMIYA_COLLECTION = {
 
   // 長野県｜信濃国｜諏訪大社 上社（ID: 033）
   "033": {
-    photo: "",
-    visited: false,
+    photo: "assets/photos/033_長野_諏訪大社上社本宮.jpg",
+    visited: true,
     worshipped: "",
     memo: ""
   },
 
   // 長野県｜信濃国｜諏訪大社 下社（ID: 034）
   "034": {
-    photo: "",
-    visited: false,
+    photo: "assets/photos/034_長野_諏訪大社下社秋宮.jpg",
+    visited: true,
     worshipped: "",
     memo: ""
   },
