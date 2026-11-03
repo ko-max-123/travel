@@ -3159,17 +3159,17 @@ window.MY_POKEFUTA_COLLECTION = {
 
   // 山形県｜山形市｜山形市｜ポポッコ・ラフレシア・ドレディア（ID: 399）
   "399": {
-    photo: "",
-    visited: false,
-    photographed: "",
+    photo: "assets/photos/399_山形_山形市_山形駅.jpg",
+    visited: true,
+    photographed: "2025/11/02",
     memo: ""
   },
 
   // 山形県｜寒河江市｜寒河江市｜チェリム・チェリンボ（ID: 400）
   "400": {
-    photo: "",
-    visited: false,
-    photographed: "",
+    photo: "assets/photos/400_山形_寒河江_最上川.jpg",
+    visited: true,
+    photographed: "2025/11/02",
     memo: ""
   },
 
