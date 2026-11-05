@@ -3859,6 +3859,46 @@ window.MY_POKEFUTA_COLLECTION = {
     visited: false,
     photographed: "",
     memo: ""
+  },
+
+  // 群馬県｜沼田市｜吹割の滝遊歩道入口｜ノココッチ（みつふしフォルム）・ダーテング（ID: gunma-numata）
+  "gunma-numata": {
+    photo: "",
+    visited: false,
+    photographed: "",
+    memo: ""
+  },
+
+  // 群馬県｜館林市｜つつじが岡ふれあいセンター正面｜ジグザグマ・ガラルジグザグマ（ID: gunma-tatebayashi）
+  "gunma-tatebayashi": {
+    photo: "",
+    visited: false,
+    photographed: "",
+    memo: ""
+  },
+
+  // 群馬県｜渋川市｜伊香保ロープウェイ不如帰駅前｜サンダー（ID: gunma-shibukawa）
+  "gunma-shibukawa": {
+    photo: "",
+    visited: false,
+    photographed: "",
+    memo: ""
+  },
+
+  // 群馬県｜下仁田町｜駅前交流施設coconita｜カモネギ・ガラルカモネギ・ネギガナイト（ID: gunma-shimonita）
+  "gunma-shimonita": {
+    photo: "",
+    visited: false,
+    photographed: "",
+    memo: ""
+  },
+
+  // 群馬県｜長野原町｜道の駅八ッ場ふるさと館｜パルスワン・メルタン・アズマオウ（ID: gunma-naganohara）
+  "gunma-naganohara": {
+    photo: "",
+    visited: false,
+    photographed: "",
+    memo: ""
   }
 
 };

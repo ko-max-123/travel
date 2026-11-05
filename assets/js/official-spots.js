@@ -9695,10 +9695,111 @@ window.POKEFUTA_DATA.spots = [
     "photographed": "",
     "visited": false,
     "memo": ""
+  },
+  {
+    "id": "gunma-numata",
+    "officialId": null,
+    "prefecture": "gunma",
+    "prefectureName": "群馬県",
+    "city": "沼田市",
+    "area": "吹割の滝遊歩道入口",
+    "title": "群馬県・沼田市のポケふた",
+    "address": "群馬県沼田市利根町追貝1005-1（追貝駐在所横）",
+    "pokemon": [
+      "ノココッチ（みつふしフォルム）",
+      "ダーテング"
+    ],
+    "officialMap": "",
+    "source": "https://www.pref.gunma.jp/page/774447.html",
+    "photo": "",
+    "photographed": "",
+    "visited": false,
+    "memo": ""
+  },
+  {
+    "id": "gunma-tatebayashi",
+    "officialId": null,
+    "prefecture": "gunma",
+    "prefectureName": "群馬県",
+    "city": "館林市",
+    "area": "つつじが岡ふれあいセンター正面",
+    "title": "群馬県・館林市のポケふた",
+    "address": "群馬県館林市花山町3181",
+    "pokemon": [
+      "ジグザグマ",
+      "ガラルジグザグマ"
+    ],
+    "officialMap": "",
+    "source": "https://www.city.tatebayashi.gunma.jp/s003/kanko/020/010/20260929090540.html",
+    "photo": "",
+    "photographed": "",
+    "visited": false,
+    "memo": ""
+  },
+  {
+    "id": "gunma-shibukawa",
+    "officialId": null,
+    "prefecture": "gunma",
+    "prefectureName": "群馬県",
+    "city": "渋川市",
+    "area": "伊香保ロープウェイ不如帰駅前",
+    "title": "群馬県・渋川市のポケふた",
+    "address": "群馬県渋川市伊香保町伊香保560-1（渋川市営伊香保ロープウェイ不如帰駅前）",
+    "pokemon": [
+      "サンダー"
+    ],
+    "officialMap": "",
+    "source": "https://www.city.shibukawa.lg.jp/shisei/000259/000263/p015857.html",
+    "photo": "",
+    "photographed": "",
+    "visited": false,
+    "memo": ""
+  },
+  {
+    "id": "gunma-shimonita",
+    "officialId": null,
+    "prefecture": "gunma",
+    "prefectureName": "群馬県",
+    "city": "下仁田町",
+    "area": "駅前交流施設coconita",
+    "title": "群馬県・下仁田町のポケふた",
+    "address": "群馬県甘楽郡下仁田町大字下仁田381-2（駅前交流施設coconita）",
+    "pokemon": [
+      "カモネギ",
+      "ガラルカモネギ",
+      "ネギガナイト"
+    ],
+    "officialMap": "",
+    "source": "https://www.pref.gunma.jp/page/774447.html",
+    "photo": "",
+    "photographed": "",
+    "visited": false,
+    "memo": ""
+  },
+  {
+    "id": "gunma-naganohara",
+    "officialId": null,
+    "prefecture": "gunma",
+    "prefectureName": "群馬県",
+    "city": "長野原町",
+    "area": "道の駅八ッ場ふるさと館",
+    "title": "群馬県・長野原町のポケふた",
+    "address": "群馬県吾妻郡長野原町林1567-4（道の駅八ッ場ふるさと館）",
+    "pokemon": [
+      "パルスワン",
+      "メルタン",
+      "アズマオウ"
+    ],
+    "officialMap": "",
+    "source": "https://www.pref.gunma.jp/page/774447.html",
+    "photo": "",
+    "photographed": "",
+    "visited": false,
+    "memo": ""
   }
 ];
 window.POKEFUTA_DATA.official = {
   "source": "https://local.pokemon.jp/manhole/",
-  "generatedAt": "2026-09-05T12:17:05.744Z",
-  "count": 482
+  "generatedAt": "2026-11-05T00:00:00.000Z",
+  "count": 487
 };
